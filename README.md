@@ -1,8 +1,8 @@
 # Zotero search
 
 Small repo using the openAI api to allow managing a Zotero collection of papers to perform:
-    - search: search of a paper given a query sentence.
-    - clustering: clustering of the papers in the collection. 
+    * **search**: search of a paper given a query sentence.
+    * **clustering**: clustering of the papers in the collection. 
 
 How to use it ?
 
