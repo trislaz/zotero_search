@@ -14,13 +14,12 @@ class EmbeddingsCreator:
             "gpt-3.5-turbo_in": 0.0015 / 1000,
             "gpt-3.5-turbo_out": 0.002 / 1000}
 
-    def __init__(self, csv_path, embeddings_path, titles_path, summarize=False):
+    def __init__(self, csv_path, outpath, summarize=False):
         self.csv_path = csv_path
-        self.embeddings_path = embeddings_path
-        self.titles_path = titles_path
+        self.outpath = outpath
         self.summarize = summarize
         if summarize:
-            self.summaries_path = os.path.dirname(embeddings_path) + "/summaries.npy"
+            self.summaries_path = os.path.dirname(embeddings_path) + f"/{os.path.basename(csv_path).split('.')[0]}_summaries.npy"
 
     def get_embedding(self, abstract):
         e = openai.Embedding.create(input=abstract, model=self.model_emb)
@@ -50,10 +49,14 @@ class EmbeddingsCreator:
         abstracts = df['Abstract Note'].to_dict()
 
         E, S = {}, {}
+        data = {"embeddings":{},"summaries":{}, "titles":{}, "author":{}, "pdf_link":{}}
         for title, abstract in tqdm(abstracts.items()):
             try:
-                E[title] = self.get_embedding(abstract)
-                S[title] = self.get_summary(abstract) if self.summarize else title
+                data['embeddings'][title] = self.get_embedding(abstract)
+                data['summaries'][title] = self.get_summary(abstract) if self.summarize else None
+                data['titles'][title] = title
+                data['author'][title] = df.loc[title]['Author'].split(';')[0]
+                data['pdf_link'][title] = df.loc[title]['File Attachments']
             except Exception as e:
                 if "The server is overloaded or not ready yet" in str(e):
                     print('Too many requests, please wait...')
@@ -64,7 +67,6 @@ class EmbeddingsCreator:
                 else:
                     print(f'Error for {title}: {e}')
                     continue
-        titles = list(S.keys())
 
         price_em = sum([self.estimate_price(abstract, task="embedd") for abstract in abstracts.values()])
         price_sum = sum([self.estimate_price(abstract, task="summarize", summary=summary)\
@@ -72,9 +74,7 @@ class EmbeddingsCreator:
         print(f'Estimated price for embedding: {price_em} $')
         print(f'Estimated price for summarizing: {price_sum} $')
 
-        np.save(self.embeddings_path, np.array([E[title] for title in titles]))
-        np.save(self.summaries_path, np.array([S[title] for title in titles]))
-        np.save(self.titles_path, np.array(titles))
+        np.save(self.outpath, data, allow_pickle=True)
 
     def estimate_price(self, abstract, task, summary=None):
         """
@@ -100,5 +100,5 @@ class EmbeddingsCreator:
         self.process_data()
 
 if __name__ == '__main__':
-    creator = EmbeddingsCreator('assets/bibli.csv', 'assets/embeddings.npy', 'assets/titles.npy', summarize=True)
+    creator = EmbeddingsCreator('assets/whole_zotero_library.csv', 'assets/data_tri.npy', summarize=True)
     creator.main()
